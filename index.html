@@ -1,0 +1,996 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="休み方調査">
+<meta name="theme-color" content="#f9f9f9">
+<title>みんなの休み方調査</title>
+<style>
+/* Look: iOS-style. Grey grouped background with white rounded groups, hairline separators, list rows with a check on the right,
+   segmented control, compact 48px buttons, centred nav bar, iOS-like alert. One tint colour (the Yasumo rose-pink).
+   No images, gradients, glass or shadows beyond the switch knob. System fonts only, so it works offline.
+   Layout: one narrow column that grows to a 720px sheet on iPad. One fixed action bar at the bottom. */
+:root {
+  color-scheme: light;
+  --bg: #f2f2f7;
+  --card: #ffffff;
+  --bar: #f9f9f9;
+  --ink: #1c1c1e;
+  --mute: #6c6c70;
+  --sep: rgba(60, 60, 67, 0.29);
+  --fill: rgba(118, 118, 128, 0.12);
+  --tint: #d4486f;
+  --tint-soft: rgba(212, 72, 111, 0.12);
+  --red: #d92d20;
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", "Meiryo", system-ui, sans-serif;
+  --check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23d4486f' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.5 12.5l5 5L19.5 7'/%3E%3C/svg%3E");
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html { -webkit-text-size-adjust: 100%; background: var(--bg); overflow-x: clip; }
+body {
+  margin: 0; min-height: 100vh; min-height: 100dvh; overflow-x: clip; background: var(--bg); color: var(--ink);
+  font: 400 17px/1.4 var(--font); touch-action: manipulation;
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+}
+input, textarea { -webkit-user-select: text; user-select: text; }
+button { font: inherit; color: inherit; }
+button:focus-visible, textarea:focus-visible, input:focus-visible { outline: 2px solid var(--tint); outline-offset: 2px; }
+[hidden] { display: none !important; }
+
+#app {
+  max-width: 720px; margin: 0 auto;
+  padding-block: 0 calc(112px + env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.screen { display: flex; flex-direction: column; gap: 22px; }
+h1, h2, h3, p { margin: 0; }
+
+/* nav bar: back chevron and centred title; large title on home */
+.topbar {
+  position: sticky; top: 0; z-index: 10; margin-inline: calc(50% - 50vw); padding-inline: calc(50vw - 50%); background: var(--bar); border-bottom: 0.5px solid var(--sep);
+  display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; padding-top: env(safe-area-inset-top, 0px); margin-bottom: -6px;
+}
+.topbar h2 { font-size: 17px; font-weight: 600; text-align: center; }
+.icon-btn {
+  width: 44px; height: 44px; border: 0; border-radius: 50%; background: transparent; display: grid; place-items: center; cursor: pointer; color: var(--tint); margin-left: -10px;
+}
+.icon-btn:active { background: var(--fill); }
+.mini .icon-btn { margin-left: 0; width: 40px; height: 40px; }
+.icon-btn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.mini .icon-btn svg { width: 20px; height: 20px; }
+
+/* buttons */
+.btn {
+  min-height: 48px; padding: 0 16px; border: 0; border-radius: 12px; background: var(--fill); color: var(--tint); cursor: pointer;
+  font: 600 17px/1.2 var(--font); display: flex; align-items: center; justify-content: center; gap: 8px; text-align: center;
+}
+.btn:active { opacity: 0.6; }
+.btn.primary { background: var(--tint); color: #fff; }
+.btn.danger { color: var(--red); }
+.btn.xl { min-height: 52px; }
+.btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.link-btn { border: 0; background: transparent; color: var(--tint); padding: 10px; font-size: 15px; cursor: pointer; align-self: center; }
+
+.bar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 15; background: var(--bar); border-top: 0.5px solid var(--sep);
+  padding: 10px max(16px, env(safe-area-inset-right, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+}
+.bar-in { max-width: 720px; margin: 0 auto; display: flex; gap: 10px; }
+.bar-in .btn { flex: 1; padding-inline: 8px; }
+.bar-in .btn.narrow { flex: 0 0 30%; }
+.bar-in .btn.mid { flex: 0 0 36%; }
+
+/* grouped list rows (home links) */
+.group { background: var(--card); border-radius: 12px; overflow: hidden; }
+.btn.row { width: 100%; min-height: 48px; border-radius: 0; background: var(--card); color: var(--ink); font-weight: 400; justify-content: space-between; padding: 0 16px; }
+.btn.row::after { content: ""; width: 8px; height: 8px; border-right: 2px solid #c4c4c7; border-top: 2px solid #c4c4c7; transform: rotate(45deg); margin-right: 2px; }
+.btn.row + .btn.row { border-top: 0.5px solid var(--sep); }
+.btn.row:active { background: #e5e5ea; opacity: 1; }
+
+/* home and the counter */
+.hero { padding-top: calc(18px + env(safe-area-inset-top, 0px)); display: flex; flex-direction: column; gap: 2px; }
+.hero h1 { font-size: 30px; font-weight: 700; line-height: 1.25; word-break: keep-all; }
+.hero .sub { font-size: 13px; color: var(--mute); }
+.stats { display: grid; grid-template-columns: 1fr 1fr; background: var(--card); border-radius: 12px; }
+.stat { padding: 14px 16px; display: flex; flex-direction: column; gap: 0; min-width: 0; }
+.stat + .stat { border-left: 0.5px solid var(--sep); }
+.stat small { color: var(--mute); font-size: 13px; }
+.stat b { font-size: 32px; line-height: 1.25; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.stat b i { font-style: normal; font-size: 15px; font-weight: 400; margin-left: 4px; color: var(--mute); }
+.banner { background: var(--card); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+.banner p { font-weight: 600; }
+.banner .row { display: flex; gap: 10px; }
+.banner .btn { min-height: 44px; font-size: 16px; flex: 1; }
+.note { color: var(--mute); font-size: 13px; line-height: 1.5; }
+.warn { background: #fff3e0; color: #8a4b00; border-radius: 12px; padding: 12px 16px; font-size: 14px; font-weight: 600; }
+
+/* form blocks */
+.steps { display: flex; gap: 6px; align-items: center; justify-content: center; color: var(--mute); font-size: 13px; }
+.steps i { width: 6px; height: 6px; border-radius: 3px; background: #c7c7cc; display: block; }
+.steps i.on { width: 6px; background: var(--tint); }
+.tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; padding: 2px; background: var(--fill); border-radius: 9px; }
+.tab { border: 0; background: transparent; border-radius: 7px; min-height: 36px; font: 500 13px/1.2 var(--font); cursor: pointer; padding: 4px 2px; }
+.tab[aria-selected="true"] { background: #fff; font-weight: 600; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 0 1px rgba(0, 0, 0, 0.1); }
+.sec { display: flex; flex-direction: column; gap: 8px; }
+.sec > h3 { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; padding: 0 4px; }
+.sec > h3 small { color: var(--mute); font-weight: 400; font-size: 13px; }
+.sec[data-sec].done > h3::after { content: ""; width: 18px; height: 18px; margin-left: auto; flex: none; background: var(--check) center / contain no-repeat; }
+.sec.q > h3 { font-size: 17px; line-height: 1.4; align-items: flex-start; }
+.qno { flex: none; width: 22px; height: 22px; border-radius: 50%; background: var(--tint); color: #fff; display: grid; place-items: center; font-size: 13px; font-weight: 700; line-height: 1; margin-top: 1px; }
+.qnote { color: var(--mute); font-size: 14px; line-height: 1.5; padding: 0 4px; }
+.sec.q > .note { padding: 0 4px; }
+.qex { margin: 0 4px; padding-left: 12px; border-left: 3px solid #d1d1d6; color: var(--mute); font-size: 14px; line-height: 1.6; display: flex; flex-direction: column; gap: 6px; }
+.qex ul { margin: 0; padding: 0; list-style: none; }
+.qex li::before { content: "・"; }
+.hint summary {
+  list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 4px; color: var(--tint); font: 400 15px var(--font);
+}
+.hint summary::-webkit-details-marker { display: none; }
+.hint summary::after { content: ""; width: 6px; height: 6px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg) translate(-2px, -2px); }
+.hint[open] summary::after { transform: rotate(-135deg) translate(-2px, -2px); }
+.hint > div { padding: 12px 16px; background: var(--card); border-radius: 12px; display: flex; flex-direction: column; gap: 10px; }
+.hint ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.hint li { font-size: 15px; line-height: 1.5; padding-left: 14px; position: relative; }
+.hint li::before { content: ""; position: absolute; left: 0; top: 0.65em; width: 5px; height: 5px; border-radius: 50%; background: #c7c7cc; }
+
+/* choices are grouped list rows with a check on the right */
+.choices { display: flex; flex-direction: column; background: var(--card); border-radius: 12px; overflow: hidden; }
+.choice {
+  position: relative; min-height: 46px; padding: 8px 44px 8px 16px; border: 0; border-radius: 0; background: var(--card);
+  font: 400 17px/1.3 var(--font); cursor: pointer; text-align: left;
+}
+.choice + .choice::before { content: ""; position: absolute; left: 16px; right: 0; top: 0; border-top: 0.5px solid var(--sep); }
+.choice:active { background: #e5e5ea; }
+.choice[aria-pressed="true"]::after { content: ""; position: absolute; right: 16px; top: 50%; width: 20px; height: 20px; margin-top: -10px; background: var(--check) center / contain no-repeat; }
+.choices.scale { flex-direction: row; justify-content: center; gap: 2px; padding: 4px 8px; }
+.scale .choice { width: 48px; min-height: 44px; padding: 0; text-align: center; font-size: 30px; line-height: 1; color: #d1d1d6; border-radius: 8px; }
+.scale .choice::before { display: none; }
+.scale .choice::after { display: none; }
+.scale .choice[aria-pressed="true"] { color: var(--tint); }
+.scale-cap { display: flex; justify-content: space-between; gap: 12px; color: var(--mute); font-size: 13px; padding: 6px 4px 0; }
+.field {
+  width: 100%; min-height: 88px; padding: 12px 16px; border-radius: 12px; border: 0; background: var(--card);
+  font: 400 17px/1.4 var(--font); color: var(--ink); resize: vertical; display: block;
+}
+.field:focus { outline: 2px solid var(--tint); outline-offset: 0; }
+.field.line { min-height: 48px; padding-block: 10px; resize: none; }
+.toggle {
+  position: relative; display: block; width: 100%; min-height: 56px; padding: 10px 84px 10px 16px; border-radius: 12px; border: 0; background: var(--card);
+  font-weight: 400; font-size: 17px; cursor: pointer; text-align: left;
+}
+.toggle .star { display: none; }
+.toggle small { display: block; color: var(--mute); font-weight: 400; font-size: 13px; line-height: 1.4; }
+.toggle::after { content: ""; position: absolute; right: 16px; top: 50%; width: 51px; height: 31px; margin-top: -15.5px; border-radius: 16px; background: #e9e9ea; transition: background 0.2s; }
+.toggle::before { content: ""; position: absolute; right: 38px; top: 50%; width: 27px; height: 27px; margin-top: -13.5px; border-radius: 50%; background: #fff; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25); z-index: 1; transition: right 0.2s; }
+.toggle[aria-pressed="true"]::after { background: var(--tint); }
+.toggle[aria-pressed="true"]::before { right: 18px; }
+.deep { border-radius: 12px; background: var(--card); padding: 16px; display: flex; flex-direction: column; gap: 18px; }
+.deep label { font-weight: 600; font-size: 15px; display: block; margin-bottom: 6px; }
+.deep .field { background: var(--bg); }
+
+/* pen memo */
+.ink { display: flex; flex-direction: column; gap: 8px; }
+.ink-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.ink-bar button {
+  min-height: 40px; min-width: 40px; padding: 0 10px; border-radius: 10px; border: 0; background: var(--fill); font: 500 14px var(--font); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+}
+.ink-bar button[aria-pressed="true"] { background: var(--tint-soft); color: var(--tint); font-weight: 600; box-shadow: inset 0 0 0 1.5px var(--tint); }
+.ink-bar .dot { width: 16px; height: 16px; border-radius: 50%; display: block; }
+.ink-finger { font-size: 13px; color: var(--mute); display: flex; align-items: center; gap: 8px; min-height: 44px; line-height: 1.4; }
+.ink-finger input { width: 22px; height: 22px; accent-color: var(--tint); flex: none; }
+.ink-wrap {
+  position: relative; width: 100%; border-radius: 12px; overflow: hidden; background-color: #fff;
+  background-image: repeating-linear-gradient(to bottom, transparent 0 39px, #ececf0 39px 40px);
+}
+.ink-wrap canvas { display: block; width: 100%; touch-action: none; cursor: crosshair; }
+.ink-wrap.static canvas { cursor: default; touch-action: auto; }
+.ink-hint { color: var(--mute); font-size: 13px; }
+
+/* list */
+.search { display: grid; grid-template-columns: 1fr 1.35fr; gap: 8px; align-items: center; }
+.search input[type="search"] { grid-column: 1 / -1; }
+.search .chip-btn { justify-content: center; }
+.search input[type="search"] {
+  min-height: 40px; border-radius: 10px; border: 0; background: var(--fill); padding: 0 12px; font: 400 17px var(--font); color: var(--ink); width: 100%; min-width: 0;
+}
+.search input[type="search"]:focus { outline: 2px solid var(--tint); outline-offset: 0; }
+.chip-btn {
+  min-height: 40px; padding: 0 14px; border-radius: 10px; border: 0; background: var(--fill); color: var(--tint); font: 600 15px var(--font); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+}
+.chip-btn[aria-pressed="true"] { background: var(--tint); color: #fff; }
+.chip-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.active-filters { display: flex; flex-wrap: wrap; gap: 8px; }
+.tagx { border: 0; background: var(--tint-soft); color: var(--tint); font: 600 13px var(--font); padding: 6px 12px; border-radius: 999px; cursor: pointer; }
+.tagx::after { content: " ×"; }
+.count { color: var(--mute); font-size: 13px; font-variant-numeric: tabular-nums; padding: 0 4px; }
+.items { display: flex; flex-direction: column; background: var(--card); border-radius: 12px; overflow: hidden; }
+.items:empty { display: none; }
+.items > * + * { border-top: 0.5px solid var(--sep); }
+.item { background: var(--card); display: grid; grid-template-columns: 1fr auto; align-items: stretch; }
+.item-main { border: 0; background: transparent; text-align: left; padding: 12px 4px 12px 16px; cursor: pointer; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.item-title { font-weight: 600; font-size: 17px; line-height: 1.4; overflow-wrap: anywhere; }
+.item-meta { color: var(--mute); font-size: 14px; }
+.item-line { font-size: 14px; display: flex; flex-wrap: wrap; gap: 2px 12px; }
+.stars { color: var(--tint); letter-spacing: 0.02em; }
+.favbtn { width: 52px; border: 0; background: transparent; font-size: 22px; color: #d1d1d6; cursor: pointer; }
+.favbtn[aria-pressed="true"] { color: var(--tint); }
+.empty { text-align: center; color: var(--mute); padding: 32px 8px; line-height: 1.7; font-size: 15px; }
+
+/* sheet and alert */
+.scrim { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); z-index: 30; display: flex; align-items: flex-end; justify-content: center; }
+.sheet {
+  width: 100%; max-width: 720px; max-height: 88%; overflow: auto; background: var(--bg); border-radius: 12px 12px 0 0;
+  padding: 16px max(16px, env(safe-area-inset-left, 0px)) calc(14px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 22px;
+}
+.sheet h2 { font-size: 17px; font-weight: 600; text-align: center; }
+.sheet-actions { position: sticky; bottom: calc(-14px - env(safe-area-inset-bottom, 0px)); background: var(--bg); padding-top: 10px; display: flex; gap: 10px; }
+.sheet-actions .btn { flex: 1; }
+.dialog-wrap { align-items: center; padding: 20px; }
+.dialog { background: var(--card); border-radius: 14px; width: 100%; max-width: 280px; display: flex; flex-direction: column; overflow: hidden; text-align: center; }
+.dialog p { font-weight: 600; font-size: 16px; line-height: 1.5; padding: 20px 16px; white-space: pre-line; }
+.dialog .row { display: flex; border-top: 0.5px solid var(--sep); }
+.dialog .btn { flex: 1; min-height: 46px; border-radius: 0; background: transparent; font-weight: 400; }
+.dialog .btn + .btn { border-left: 0.5px solid var(--sep); font-weight: 600; }
+.toast {
+  position: fixed; left: 50%; bottom: calc(100px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 40; max-width: min(92vw, 520px);
+  background: rgba(40, 40, 42, 0.94); color: #fff; padding: 10px 18px; border-radius: 14px; font-size: 15px; text-align: center; pointer-events: none;
+}
+
+/* detail */
+.kv { background: var(--card); border-radius: 12px; padding: 0 16px; }
+.kv-row { display: grid; grid-template-columns: 7.5em 1fr; gap: 12px; padding: 11px 0; align-items: start; }
+.kv-row + .kv-row { border-top: 0.5px solid var(--sep); }
+.kv-row dt { color: var(--mute); font-size: 15px; }
+.kv-row dd { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.detail-title { font-size: 24px; font-weight: 700; line-height: 1.35; overflow-wrap: anywhere; padding: 0 4px; }
+.pill { display: inline-block; background: var(--tint-soft); color: var(--tint); font-weight: 600; font-size: 13px; padding: 4px 12px; border-radius: 999px; margin: 0 6px 6px 0; }
+.mini { background: var(--card); padding: 6px 6px 6px 16px; display: flex; gap: 2px; align-items: center; min-height: 56px; }
+.mini-main { flex: 1; min-width: 0; border: 0; background: transparent; text-align: left; cursor: pointer; padding: 4px 0; }
+.mini-main b { display: block; overflow-wrap: anywhere; font-weight: 600; }
+.mini-main span { color: var(--mute); font-size: 14px; }
+.mini .icon-btn { flex: none; color: var(--tint); }
+.saved { text-align: center; padding-top: calc(48px + env(safe-area-inset-top, 0px)); gap: 16px; }
+.saved .tick { width: 56px; height: 56px; border-radius: 50%; background: var(--tint); margin: 0 auto; display: grid; place-items: center; }
+.saved .tick svg { width: 28px; height: 28px; fill: none; stroke: #fff; stroke-width: 3.4; stroke-linecap: round; stroke-linejoin: round; }
+.saved h1 { font-size: 24px; font-weight: 700; line-height: 1.3; }
+.saved .stats { text-align: left; }
+.meter { height: 6px; border-radius: 999px; background: #d1d1d6; overflow: hidden; }
+.meter i { display: block; height: 100%; background: var(--tint); }
+
+@media (min-width: 760px) {
+  .hero h1 { font-size: 34px; }
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="overlay"></div>
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+(() => {
+'use strict';
+
+/* ================================================================ options */
+const AGES = ['10代以下', '20代', '30代', '40代', '50代', '60代以上'];
+const ROLES = ['学生', '会社員', 'アルバイト・パート', '自営業・フリーランス', 'その他'];
+const FREQS = ['ほぼ毎日', 'よく感じる', 'ときどき感じる', 'ほとんど感じない'];
+const WHENS = ['体が疲れた時', '頭を使いすぎた時', '気持ちが疲れた時', '人と関わって疲れた時', 'やる気が出ない時', '生活リズムが乱れている時', '特に決まっていない', 'その他'];
+const DURS = ['5分以内', '15分くらい', '30分くらい', '1時間くらい', 'それ以上'];
+const PLACES = ['家', '外', '学校・職場', '移動中', 'どこでも', 'その他'];
+const WHOS = ['一人', '誰かと', 'どちらでも'];
+const GACHA = ['使ってみたい', 'どちらとも言えない', 'あまり使わない'];
+const REST_CAP = ['1 ほとんど休めない', '5 かなり休める'];
+const REC_CAP = ['1 あまりすすめない', '5 とてもすすめたい'];
+const TAB_NAMES = ['休み方', 'やり方', '評価・メモ'];
+/* How the rest methods are asked: 1st answer = basic rest, every later answer = the person's own small habits. */
+const QUESTIONS = [
+  { q: '疲れた時、まず何をすることが多いですか？', note: '寝る、横になる、お風呂に入るなど、普段やっていることで大丈夫です。', ph: '例）寝る ／ お風呂に入る' },
+  {
+    q: '疲れが少し落ち着いたあとに、自分を整えたり、気分を変えたり、元気を取り戻すためにやっていることってありますか？',
+    note: '寝る・横になるなどの『まず休む』行動ではなく、そのあとに自分をちょっと元気にしたり、気分を切り替えたりするためにやることを教えてください。',
+    eg: { lead: '例えば、', items: ['散歩をする', 'カラオケに行く', '居酒屋で愚痴を話す', '好きなものを食べる', '一人で本屋をぶらぶらする'], tail: 'などです。', close: 'なんとなくやっていることや、自分だけの習慣、変なこだわりでも大丈夫です。' },   // only to show that everyday actions count, not to limit answers
+    ph: 'やっていること（1つずつ）'
+  }
+];
+const HINTS = [
+  '他の人にはあまり言わないけど、自分だけやってることあります？',
+  '5分しかなかったら何します？',
+  '1時間くらい自由だったら何します？',
+  '気分を変えたい時は何します？',
+  'お金をかけずに何かするなら？',
+  '頭を使いすぎた時は？',
+  '人と関わって疲れた時は？'
+];
+
+/* ================================================================ storage */
+const LS_KEY = 'yasumo-survey-v1', DRAFT_KEY = 'yasumo-survey-draft-v1', FINGER_KEY = 'yasumo-ink-finger', PEN_KEY = 'yasumo-ink-pen-seen';
+const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+const lsSet = k => v => { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } };
+const lsDel = k => { try { localStorage.removeItem(k); } catch (e) {} };
+let storageOK = (() => { try { localStorage.setItem('__t', '1'); localStorage.removeItem('__t'); return true; } catch (e) { return false; } })();
+try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
+
+function loadDB() {
+  const raw = lsGet(LS_KEY);
+  if (raw) {
+    try { const j = JSON.parse(raw); if (j && Array.isArray(j.people)) return j; }
+    catch (e) { lsSet(LS_KEY + '-broken')(raw); }          // never overwrite data we could not read
+  }
+  return { v: 1, nextNo: 1, people: [] };
+}
+let db = loadDB();
+function saveDB() {
+  if (!lsSet(LS_KEY)(JSON.stringify(db))) { toast('端末に保存できませんでした。先にデータを書き出してください。'); return false; }
+  return true;
+}
+let draft = (() => { try { const j = JSON.parse(lsGet(DRAFT_KEY)); return j && j.person ? j : null; } catch (e) { return null; } })();
+let draftTimer = 0;
+function saveDraft() {
+  clearTimeout(draftTimer);
+  draftTimer = setTimeout(() => { if (draft) lsSet(DRAFT_KEY)(JSON.stringify(draft)); else lsDel(DRAFT_KEY); }, 250);
+}
+function flushDraft() { clearTimeout(draftTimer); if (draft) lsSet(DRAFT_KEY)(JSON.stringify(draft)); else lsDel(DRAFT_KEY); }
+window.addEventListener('pagehide', flushDraft);
+document.addEventListener('visibilitychange', () => { if (document.hidden) flushDraft(); });
+
+/* ================================================================ helpers */
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const uid = () => 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const now = () => new Date().toISOString();
+const pad = n => String(n).padStart(2, '0');
+const fmtDT = iso => { const d = new Date(iso); return isNaN(d) ? '' : `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+const stars = n => n ? '★'.repeat(n) + '☆'.repeat(5 - n) : '未回答';
+const personNo = n => String(n).padStart(3, '0');
+const hasText = v => typeof v === 'string' && v.trim() !== '';
+const clone = o => JSON.parse(JSON.stringify(o));
+const newRest = () => ({ id: uid(), text: '', when: [], dur: '', place: '', who: '', rest: null, rec: null, memo: '', ink: null, fav: false, deep: null, createdAt: now(), updatedAt: now() });
+const newDeep = () => ({ why: '', after: '', mismatch: '', mismatchWhy: '', gacha: '', memo: '' });
+const deepHasContent = d => !!d && Object.keys(d).some(k => hasText(d[k]));
+const inkHasContent = i => !!i && Array.isArray(i.s) && i.s.length > 0;
+const stats = () => ({ people: db.people.length, rests: db.people.reduce((n, p) => n + p.rests.length, 0) });
+const allRows = () => { const rows = []; db.people.forEach(p => p.rests.forEach(r => rows.push({ p, r }))); return rows.sort((a, b) => (b.r.createdAt || '').localeCompare(a.r.createdAt || '')); };
+const findRest = id => { for (const p of db.people) { const r = p.rests.find(x => x.id === id); if (r) return { p, r }; } return null; };
+const findPerson = id => db.people.find(p => p.id === id) || null;
+
+const ICON = {
+  back: '<svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>',
+  plus: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+  trash: '<svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12h10l1-12M9 7V4h6v3"/></svg>',
+  edit: '<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/></svg>',
+  filter: '<svg viewBox="0 0 24 24"><path d="M4 7h16M7 12h10M10 17h4"/></svg>',
+  tick: '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'
+};
+
+let toastTimer = 0;
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 2600);
+}
+function confirmDialog(message, okLabel) {
+  return new Promise(resolve => {
+    const root = $('#overlay');
+    root.innerHTML = `<div class="scrim dialog-wrap" role="dialog" aria-modal="true"><div class="dialog"><p>${esc(message)}</p><div class="row"><button class="btn" data-d="no">キャンセル</button><button class="btn danger" data-d="yes">${esc(okLabel || '削除する')}</button></div></div></div>`;
+    root.onclick = e => {
+      const b = e.target.closest('[data-d]'); if (!b && e.target.closest('.dialog')) return;
+      root.innerHTML = ''; root.onclick = null; resolve(!!b && b.dataset.d === 'yes');
+    };
+  });
+}
+
+/* ================================================================ pen memo */
+const INK_W = 1000, INK_H = 560, INK_COLORS = ['#2f2f2f', '#e2607f'];
+const inkEncode = strokes => ({ w: INK_W, h: INK_H, s: strokes.map(s => ({ c: s.c, w: s.w, p: s.p.map(q => `${Math.round(q[0])},${Math.round(q[1])},${Math.round(q[2] * 9)}`).join(' ') })) });
+const inkDecode = ink => (ink && ink.s ? ink.s : []).map(s => ({ c: s.c, w: s.w, p: s.p.split(' ').map(t => { const a = t.split(',').map(Number); return [a[0], a[1], a[2] / 9]; }) }));
+function drawStroke(g, s, k) {
+  const P = s.p; if (!P.length) return;
+  g.lineCap = 'round'; g.lineJoin = 'round';
+  const col = INK_COLORS[s.c] || INK_COLORS[0]; g.strokeStyle = col; g.fillStyle = col;
+  const wOf = pr => s.w * k * (0.45 + 1.1 * pr);
+  if (P.length === 1) { g.beginPath(); g.arc(P[0][0] * k, P[0][1] * k, wOf(P[0][2]) / 2, 0, Math.PI * 2); g.fill(); return; }
+  let from = P[0];
+  for (let i = 1; i < P.length; i++) {
+    const cur = P[i], nxt = P[i + 1], end = nxt ? [(cur[0] + nxt[0]) / 2, (cur[1] + nxt[1]) / 2] : cur;
+    g.lineWidth = wOf((cur[2] + P[i - 1][2]) / 2);
+    g.beginPath(); g.moveTo(from[0] * k, from[1] * k); g.quadraticCurveTo(cur[0] * k, cur[1] * k, end[0] * k, end[1] * k); g.stroke();
+    from = end;
+  }
+}
+function sizeCanvas(canvas, wrap) {
+  const w = Math.max(200, wrap.clientWidth), k = w / INK_W, dpr = Math.min(window.devicePixelRatio || 1, 3);
+  canvas.style.height = Math.round(INK_H * k) + 'px';
+  canvas.width = Math.round(w * dpr); canvas.height = Math.round(INK_H * k * dpr);
+  const g = canvas.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { g, k };
+}
+function mountStaticInk(wrap, ink) {
+  const canvas = wrap.querySelector('canvas'), paint = () => { const { g, k } = sizeCanvas(canvas, wrap); inkDecode(ink).forEach(s => drawStroke(g, s, k)); };
+  requestAnimationFrame(paint);
+}
+
+class InkPad {
+  constructor(host, ink, onChange) {
+    this.host = host; this.onChange = onChange;
+    this.strokes = inkDecode(ink); this.undoStack = []; this.tool = 'pen'; this.color = 0; this.cur = null; this.erasing = false; this.penDown = false;
+    const pref = lsGet(FINGER_KEY); this.fingerPref = pref; this.allowFinger = pref === null ? true : pref === '1'; this.penSeen = lsGet(PEN_KEY) === '1';
+    if (this.penSeen && pref === null) this.allowFinger = false;
+    this.wrap = $('.ink-wrap', host); this.canvas = $('canvas', host);
+    this.bindUI(); this.resize();
+    if (window.ResizeObserver) { this.ro = new ResizeObserver(() => this.resize()); this.ro.observe(this.wrap); }
+    const c = this.canvas;
+    c.addEventListener('pointerdown', e => this.down(e));
+    c.addEventListener('pointermove', e => this.move(e));
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => c.addEventListener(t, e => this.up(e)));
+    c.addEventListener('contextmenu', e => e.preventDefault());
+  }
+  bindUI() {
+    const h = this.host, sync = () => {
+      $$('[data-ink-tool]', h).forEach(b => b.setAttribute('aria-pressed', String((b.dataset.inkTool === 'eraser' && this.tool === 'eraser') || (b.dataset.inkTool !== 'eraser' && this.tool === 'pen' && String(this.color) === b.dataset.inkTool))));
+      const f = $('[data-ink-finger]', h); if (f) f.checked = this.allowFinger;
+    };
+    this.sync = sync; sync();
+    h.addEventListener('click', e => {
+      const t = e.target.closest('[data-ink-tool]'), a = e.target.closest('[data-ink-act]');
+      if (t) { if (t.dataset.inkTool === 'eraser') this.tool = 'eraser'; else { this.tool = 'pen'; this.color = Number(t.dataset.inkTool); } sync(); }
+      if (a) { if (a.dataset.inkAct === 'undo') this.undo(); else if (a.dataset.inkAct === 'clear') this.clearAll(); }
+    });
+    const f = $('[data-ink-finger]', h);
+    if (f) f.addEventListener('change', () => { this.allowFinger = f.checked; lsSet(FINGER_KEY)(f.checked ? '1' : '0'); this.fingerPref = f.checked ? '1' : '0'; });
+  }
+  resize() { const r = sizeCanvas(this.canvas, this.wrap); this.g = r.g; this.k = r.k; this.redraw(); }
+  redraw() { this.g.clearRect(0, 0, INK_W * this.k, INK_H * this.k); this.strokes.forEach(s => drawStroke(this.g, s, this.k)); }
+  pos(e) { const r = this.canvas.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * INK_W, (e.clientY - r.top) / r.height * INK_H]; }
+  pressure(e) { return e.pointerType === 'pen' ? Math.min(1, Math.max(0.12, e.pressure || 0.5)) : 0.5; }
+  snapshot() { this.undoStack.push(JSON.stringify(this.strokes)); if (this.undoStack.length > 40) this.undoStack.shift(); }
+  commit() { this.onChange(this.strokes.length ? inkEncode(this.strokes) : null); }
+  down(e) {
+    if (e.pointerType === 'pen') {
+      this.penDown = true;
+      if (!this.penSeen) { this.penSeen = true; lsSet(PEN_KEY)('1'); if (this.fingerPref === null) { this.allowFinger = false; this.sync(); } }
+    } else if (e.pointerType === 'touch' && (this.penDown || !this.allowFinger)) return;      // palm and stray finger
+    if (e.button > 0) return;
+    e.preventDefault();
+    try { this.canvas.setPointerCapture(e.pointerId); } catch (err) {}
+    this.activeId = e.pointerId; this.snapshot();
+    const [x, y] = this.pos(e);
+    if (this.tool === 'eraser') { this.erasing = true; this.erased = false; this.eraseAt(x, y); }
+    else { this.cur = { c: this.color, w: 3.2, p: [[x, y, this.pressure(e)]] }; this.strokes.push(this.cur); this.drawDot(this.cur); }
+  }
+  move(e) {
+    if (e.pointerId !== this.activeId) return;
+    const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+    for (const ev of (evs.length ? evs : [e])) {
+      const [x, y] = this.pos(ev);
+      if (this.erasing) { this.eraseAt(x, y); continue; }
+      if (!this.cur) continue;
+      const last = this.cur.p[this.cur.p.length - 1];
+      if (Math.hypot(x - last[0], y - last[1]) < 1.4) continue;
+      const pr = this.pressure(ev); this.cur.p.push([x, y, pr]);
+      const g = this.g, k = this.k; g.lineCap = 'round'; g.strokeStyle = INK_COLORS[this.cur.c]; g.lineWidth = this.cur.w * k * (0.45 + 1.1 * ((pr + last[2]) / 2));
+      g.beginPath(); g.moveTo(last[0] * k, last[1] * k); g.lineTo(x * k, y * k); g.stroke();
+    }
+  }
+  up(e) {
+    if (e.pointerId !== this.activeId) return;
+    if (e.pointerType === 'pen') this.penDown = false;
+    this.activeId = null;
+    if (this.erasing) { this.erasing = false; if (!this.erased) this.undoStack.pop(); else this.commit(); return; }
+    if (this.cur) { this.cur = null; this.redraw(); this.commit(); }
+  }
+  drawDot(s) { const g = this.g, k = this.k; g.fillStyle = INK_COLORS[s.c]; g.beginPath(); g.arc(s.p[0][0] * k, s.p[0][1] * k, s.w * k * 0.5, 0, Math.PI * 2); g.fill(); }
+  eraseAt(x, y) {
+    const R = 22, before = this.strokes.length;
+    this.strokes = this.strokes.filter(s => !s.p.some(q => Math.hypot(q[0] - x, q[1] - y) < R));
+    if (this.strokes.length !== before) { this.erased = true; this.redraw(); }
+  }
+  undo() { const s = this.undoStack.pop(); if (!s) return; this.strokes = JSON.parse(s); this.redraw(); this.commit(); }
+  clearAll() { if (!this.strokes.length) return; this.snapshot(); this.strokes = []; this.redraw(); this.commit(); }
+  destroy() { if (this.ro) this.ro.disconnect(); }
+}
+const inkBlock = () => `
+  <div class="ink" id="ink-host">
+    <div class="ink-bar">
+      <button type="button" data-ink-tool="0" aria-pressed="true" aria-label="黒ペン"><span class="dot" style="background:${INK_COLORS[0]}"></span>ペン</button>
+      <button type="button" data-ink-tool="1" aria-pressed="false" aria-label="ピンクのペン"><span class="dot" style="background:${INK_COLORS[1]}"></span></button>
+      <button type="button" data-ink-tool="eraser" aria-pressed="false">消しゴム</button>
+      <button type="button" data-ink-act="undo" aria-label="ひとつ戻す">戻す</button>
+      <button type="button" data-ink-act="clear">全消し</button>
+    </div>
+    <div class="ink-wrap"><canvas aria-label="手書きメモ欄"></canvas></div>
+    <label class="ink-finger"><input type="checkbox" data-ink-finger> 指でも書く（オフにすると、手のひらが触れても線が出ません）</label>
+  </div>`;
+
+/* ================================================================ state */
+let editSession = null;      // edit / add of an already saved rest
+let liveInk = null;          // pen pad of the open form
+let listScroll = 0;
+const FILT = { q: '', age: [], role: [], when: [], dur: [], place: [], restMin: null, fav: false };
+const filterCount = () => ['age', 'role', 'when', 'dur', 'place'].reduce((n, k) => n + FILT[k].length, 0) + (FILT.restMin ? 1 : 0);
+const draftHasData = d => !!d && (d.step !== 'basic' || !!(d.person.nick || d.person.age || d.person.role || d.person.freq) || d.rests.length > 0 || !!d.form);
+
+/* ================================================================ view helpers */
+const topbar = (title, back, act = 'go', keep = false) => `<header class="topbar">${back != null ? `<button class="icon-btn" data-act="${act}" data-to="${back}" ${keep ? 'data-keep="1"' : ''} aria-label="戻る">${ICON.back}</button>` : '<span></span>'}<h2>${esc(title)}</h2><span></span></header>`;
+const bar = html => `<div class="bar"><div class="bar-in">${html}</div></div>`;
+const btn = (label, act, cls = '', extra = '') => `<button type="button" class="btn ${cls}" data-act="${act}" ${extra}>${label}</button>`;
+function choices(scope, key, opts, sel, multi, label, extra = '') {
+  const wide = opts.some(o => o.length >= 9) ? ' wide' : '';                 // long labels get one column on phones
+  return `<div class="choices${wide}" data-scope="${scope}" data-group="${key}" data-multi="${multi ? 1 : 0}" ${extra}>` +
+    opts.map(o => `<button type="button" class="choice" data-val="${esc(o)}" aria-pressed="${multi ? (sel || []).includes(o) : sel === o}">${esc(o)}</button>`).join('') + '</div>';
+}
+function scale(scope, key, val, caps) {
+  return `<div><div class="scale choices" data-scope="${scope}" data-group="${key}" data-num="1" data-clear="1" data-scale="1">` +
+    [1, 2, 3, 4, 5].map(n => `<button type="button" class="choice" data-val="${n}" aria-label="${n}" aria-pressed="${val != null && n <= val}">★</button>`).join('') +
+    `</div><div class="scale-cap"><span>${caps[0]}</span><span>${caps[1]}</span></div></div>`;
+}
+const sec = (id, title, body, note = '') => `<section class="sec" data-sec="${id}"><h3>${esc(title)}${note ? ` <small>${esc(note)}</small>` : ''}</h3>${body}</section>`;
+const nickField = v => `<input type="text" class="field line" data-bind="person.nick" value="${esc(v)}" maxlength="30" autocomplete="off" placeholder="呼び名" enterkeyhint="done">`;
+
+/* ================================================================ views */
+const statsBlock = s => `<div class="stats"><div class="stat"><small>回答者</small><b>${s.people}<i>人</i></b></div><div class="stat"><small>集まった休み方</small><b>${s.rests}<i>件</i></b></div></div>`;
+function viewHome() {
+  const s = stats(), has = draftHasData(draft);
+  const warn = storageOK ? '' : '<p class="warn">この画面では記録を保存できません。ブラウザの設定（プライベートブラウズなど）を確認してください。</p>';
+  app.innerHTML = `<div class="screen">
+    <header class="hero"><h1>みんなの<wbr>休み方調査</h1><p class="sub">PROJECT Yasumo</p></header>
+    ${warn}
+    ${statsBlock(s)}
+    ${has ? `<div class="banner"><p>入力の途中です（休み方 ${draft.rests.length}件）</p><div class="row">${btn('続きを記録する', 'new', 'primary')}${btn('破棄する', 'discard-draft')}</div></div>` : ''}
+    ${has ? '' : btn('新しく記録する', 'new', 'primary xl')}
+    <div class="group">${btn('記録一覧を見る', 'go', 'row', 'data-to="#/list"')}${btn('データを書き出す', 'go', 'row', 'data-to="#/export"')}</div>
+    <p class="note">記録は、この端末のブラウザの中にだけ保存されます。こまめに書き出してバックアップしてください。</p>
+  </div>`;
+}
+
+/* ---- new respondent -------------------------------------------------- */
+function viewNew() {
+  if (!draft) { draft = { person: { nick: '', age: '', role: '', freq: '' }, rests: [], step: 'basic', form: null, idx: -1, page: 0 }; saveDraft(); }
+  if (draft.step === 'basic') return viewBasic();
+  if (draft.step === 'summary') return viewSummary();
+  if (!draft.form) { draft.form = newRest(); draft.idx = -1; draft.page = 0; }
+  return viewRestForm(draft, 'new');
+}
+function viewBasic() {
+  const p = draft.person;
+  app.innerHTML = `<div class="screen">
+    ${topbar('新しい回答者', '#/')}
+    <div class="steps"><i class="on"></i><i></i> 基本情報</div>
+    ${sec('nick', 'ニックネーム', nickField(p.nick), '任意')}
+    ${sec('age', '年代', choices('person', 'age', AGES, p.age, false))}
+    ${sec('role', '現在の立場', choices('person', 'role', ROLES, p.role, false))}
+    ${sec('freq', '普段、疲れを感じる頻度', choices('person', 'freq', FREQS, p.freq, false))}
+    <p class="note">入力しなくても次へ進めます。ニックネームは呼び名のメモ用です。本名・性別・住所などは記録しません。IDは保存時に自動で付きます。</p>
+  </div>
+  ${bar(btn(draft.rests.length ? '保存して戻る' : '次へ：休み方を記録', 'basic-next', 'primary', `id="basic-next"`))}`;
+  refreshStatus();
+}
+function viewSummary() {
+  const next = personNo(db.nextNo);
+  app.innerHTML = `<div class="screen">
+    ${topbar('この人の記録', '#/')}
+    <div class="steps"><i></i><i class="on"></i> 休み方 ${draft.rests.length}件</div>
+    <dl class="kv" style="margin:0"><div class="kv-row"><dt>ID（保存時）</dt><dd>${next}</dd></div>
+      ${hasText(draft.person.nick) ? `<div class="kv-row"><dt>ニックネーム</dt><dd>${esc(draft.person.nick.trim())}</dd></div>` : ''}
+      <div class="kv-row"><dt>基本情報</dt><dd>${esc(draft.person.age || '—')} / ${esc(draft.person.role || '—')} / 疲れ：${esc(draft.person.freq || '—')}</dd></div></dl>
+    <div class="items">${draft.rests.map((r, i) => `<div class="mini"><button class="mini-main" data-act="draft-edit" data-i="${i}"><b>${esc(r.text || '（休み方が未入力）')}</b><span>${restMetaShort(r)}</span></button>
+      <button class="icon-btn" data-act="draft-edit" data-i="${i}" aria-label="編集">${ICON.edit}</button>
+      <button class="icon-btn" data-act="draft-del" data-i="${i}" aria-label="削除">${ICON.trash}</button></div>`).join('') || '<p class="empty">まだ休み方がありません</p>'}</div>
+    <button class="link-btn" data-act="draft-basic">基本情報を直す</button>
+  </div>
+  ${bar(btn('休み方を追加', 'draft-add', 'mid') + btn('この人の記録を保存', 'save-person', 'primary'))}`;
+}
+const restMetaShort = r => [r.when.join('・'), r.dur, r.rest ? '休めた感 ' + r.rest : ''].filter(Boolean).join(' / ') || '詳細なし';
+
+/* ---- rest form (new / edit / add) ------------------------------------ */
+function restPos(sess, mode) {                    // which answer of this respondent the form is for (0 = first)
+  if (mode === 'new') return sess.idx >= 0 ? sess.idx : sess.rests.length;
+  const p = findPerson(sess.personId);
+  if (!p) return 0;
+  return mode === 'add' ? p.rests.length : Math.max(0, p.rests.findIndex(r => r.id === sess.restId));
+}
+function questionSec(mode, pos, f) {
+  const Q = QUESTIONS[pos === 0 ? 0 : 1];
+  return `<section class="sec q" data-sec="text"><h3><span class="qno" aria-label="質問${pos === 0 ? 1 : 2}">${pos === 0 ? 1 : 2}</span>${esc(Q.q)}</h3>
+    <p class="qnote">${esc(Q.note)}</p>
+    ${Q.eg ? `<div class="qex"><p>${esc(Q.eg.lead)}</p><ul>${Q.eg.items.map(i => `<li>${esc(i)}</li>`).join('')}</ul><p>${esc(Q.eg.tail)}</p><p>${esc(Q.eg.close)}</p></div>` : ''}
+    <textarea id="f-text" class="field" rows="3" data-bind="form.text" placeholder="${esc(Q.ph)}" enterkeyhint="done">${esc(f.text)}</textarea>
+    ${mode === 'edit' ? '' : '<p class="note">1つの行動を1件として入力します。次の行動は、保存したあとに「休み方を追加」で入力できます。</p>'}
+    <details class="hint"><summary>聞き方のヒント</summary><div><p class="note">調査者用です。必ず聞く質問ではなく、会話に詰まった時だけ使ってください。</p><ul>${HINTS.map(h => `<li>${esc(h)}</li>`).join('')}</ul></div></details>
+  </section>`;
+}
+function viewRestForm(sess, mode) {
+  const f = sess.form, page = sess.page || 0;
+  const title = mode === 'new' ? `休み方 ${restPos(sess, mode) + 1}件目` : mode === 'add' ? '休み方を追加' : '休み方を編集';
+  let body = '';
+  if (page === 0) {
+    body = questionSec(mode, restPos(sess, mode), f) +
+      sec('when', 'どんな時にやる？', choices('form', 'when', WHENS, f.when, true), '複数選択');
+  } else if (page === 1) {
+    body = sec('dur', 'かかる時間', choices('form', 'dur', DURS, f.dur, false, '', 'data-clear="1"')) +
+      sec('place', 'どこでやる？', choices('form', 'place', PLACES, f.place, false, '', 'data-clear="1"')) +
+      sec('who', '誰とやる？', choices('form', 'who', WHOS, f.who, false, '', 'data-clear="1"'));
+  } else {
+    const deepOpen = sess.deepOpen || deepHasContent(f.deep);
+    body = sec('rest', 'どのくらい休めた感じがする？', scale('form', 'rest', f.rest, REST_CAP)) +
+      sec('rec', '他の人にもおすすめしたい？', scale('form', 'rec', f.rec, REC_CAP)) +
+      sec('memo', 'メモ', `<textarea id="f-memo" class="field" rows="3" data-bind="form.memo" placeholder="面白いエピソード、話していた言葉など（任意）">${esc(f.memo)}</textarea>` +
+        inkBlock() + '<p class="ink-hint">iPadはApple Pencilで書けます。書いた内容は自動で残ります。</p>', '任意') +
+      `<button type="button" class="toggle" id="fav-toggle" data-act="form-fav" aria-pressed="${f.fav}"><span class="star">★</span><span>特に面白い休み方<small>ガチャに採用する候補として目印を付けます</small></span></button>` +
+      `<button type="button" class="btn" data-act="deep-toggle" aria-expanded="${deepOpen}">${deepOpen ? '深掘りを閉じる' : '深掘りする'}</button>` +
+      (deepOpen ? deepBlock(f.deep || (f.deep = newDeep())) : '');
+  }
+  const tabs = `<div class="tabs" role="tablist">${TAB_NAMES.map((n, i) => `<button class="tab" role="tab" data-act="form-page" data-p="${i}" aria-selected="${i === page}">${i + 1} ${n}</button>`).join('')}</div>`;
+  const draftEdit = mode === 'new' && sess.idx >= 0;     // fixing a rest of the respondent being recorded
+  let actions;
+  if (mode === 'new' && !draftEdit) {
+    actions = btn('戻る', 'form-prev', 'narrow') + (page < 2 ? btn('次へ', 'form-next', 'primary') : btn('この休み方を保存', 'form-commit', 'primary'));
+  } else if (draftEdit) {
+    actions = btn('やめる', 'draft-edit-cancel', 'narrow') + btn('保存して戻る', 'form-commit', 'primary');
+  } else {
+    actions = btn('やめる', 'edit-cancel', 'narrow') + btn('保存して戻る', 'edit-save', 'primary');
+  }
+  const topBack = mode === 'new' ? topbar(title, '', draftEdit ? 'draft-edit-cancel' : 'form-prev') : topbar(title, mode === 'add' ? '#/person/' + sess.personId : '#/detail/' + sess.restId);
+  app.innerHTML = `<div class="screen">${topBack}${tabs}${body}</div>${bar(actions)}`;
+  refreshStatus();
+  if (page === 2) {
+    liveInk = new InkPad($('#ink-host'), f.ink, ink => { f.ink = ink; touchSession(); });
+  }
+}
+function deepBlock(d) {
+  const ta = (k, label, ph) => `<div><label for="d-${k}">${label}</label><textarea id="d-${k}" class="field" rows="2" data-bind="deep.${k}" placeholder="${ph}">${esc(d[k])}</textarea></div>`;
+  return `<div class="deep">
+    ${ta('why', 'なぜこの休み方をするようになった？', '')}
+    ${ta('after', 'やった後、どんな感じになる？', '')}
+    ${ta('mismatch', '自分には合わなかった休み方はある？', '')}
+    ${ta('mismatchWhy', 'その理由は？', '')}
+    <div><label>他の人の休み方をガチャや図鑑で見られたら使ってみたい？</label>${choices('deep', 'gacha', GACHA, d.gacha, false, '', 'data-clear="1"')}</div>
+    ${ta('memo', 'その他メモ', '')}
+  </div>`;
+}
+
+/* ---- saved ------------------------------------------------------------ */
+function viewSaved() {
+  const s = stats();
+  app.innerHTML = `<div class="screen saved">
+    <div class="tick">${ICON.tick}</div>
+    <h1>保存しました</h1>
+    ${statsBlock(s)}
+    ${btn('次の人を記録する', 'new', 'primary xl')}
+    <button class="link-btn" data-act="go" data-to="#/">ホームへ戻る</button>
+  </div>`;
+}
+
+/* ---- list ------------------------------------------------------------- */
+function rowMatches({ p, r }) {
+  if (FILT.age.length && !FILT.age.includes(p.age)) return false;
+  if (FILT.role.length && !FILT.role.includes(p.role)) return false;
+  if (FILT.when.length && !FILT.when.some(w => r.when.includes(w))) return false;
+  if (FILT.dur.length && !FILT.dur.includes(r.dur)) return false;
+  if (FILT.place.length && !FILT.place.includes(r.place)) return false;
+  if (FILT.restMin && !(r.rest >= FILT.restMin)) return false;
+  if (FILT.fav && !r.fav) return false;
+  const q = FILT.q.trim().toLowerCase();
+  if (q) {
+    const d = r.deep || {}, hay = [r.text, r.memo, d.why, d.after, d.mismatch, d.mismatchWhy, d.gacha, d.memo, p.nick, p.age, p.role, p.freq, r.when.join(' '), r.dur, r.place, r.who].join(' ').toLowerCase();
+    if (!q.split(/\s+/).every(t => hay.includes(t))) return false;
+  }
+  return true;
+}
+function itemHtml({ p, r }) {
+  return `<div class="item"><button class="item-main" data-act="open" data-id="${r.id}">
+      <span class="item-title">${esc(r.text || '（休み方が未入力）')}</span>
+      <span class="item-meta">${hasText(p.nick) ? esc(p.nick.trim()) + '　' : ''}${esc(p.age || '—')} / ${esc(p.role || '—')}</span>
+      <span class="item-line">${r.when.length ? `<span>${esc(r.when.join('・'))}</span>` : ''}${r.dur ? `<span>${esc(r.dur)}</span>` : ''}${r.place ? `<span>${esc(r.place)}</span>` : ''}</span>
+      <span class="item-line"><span>休めた感：<span class="stars">${stars(r.rest)}</span></span></span>
+    </button><button class="favbtn" data-act="fav" data-id="${r.id}" aria-pressed="${!!r.fav}" aria-label="面白い休み方の目印">★</button></div>`;
+}
+function renderResults() {
+  const rows = allRows(), hit = rows.filter(rowMatches);
+  $('#list-count').textContent = rows.length ? `${hit.length}件 / 全${rows.length}件` : '';
+  $('#list-items').innerHTML = hit.length ? hit.map(itemHtml).join('') :
+    `<p class="empty">${rows.length ? '条件に合う休み方がありません。<br>絞り込みを変えてみてください。' : 'まだ記録がありません。'}</p>`;
+  const chips = [];
+  ['age', 'role', 'when', 'dur', 'place'].forEach(k => FILT[k].forEach(v => chips.push(`<button class="tagx" data-act="unfilter" data-k="${k}" data-v="${esc(v)}">${esc(v)}</button>`)));
+  if (FILT.restMin) chips.push(`<button class="tagx" data-act="unfilter" data-k="restMin" data-v="">休めた感 ★${FILT.restMin}${FILT.restMin < 5 ? '以上' : ''}</button>`);
+  $('#active-filters').innerHTML = chips.join('');
+  const fb = $('#filter-open'); if (fb) fb.innerHTML = `${ICON.filter}絞り込み${filterCount() ? ' ' + filterCount() : ''}`;
+  const sb = $('#sheet-apply'); if (sb) sb.textContent = `${hit.length}件を表示`;
+}
+function viewList() {
+  app.innerHTML = `<div class="screen">
+    ${topbar('記録一覧', '#/')}
+    <div class="search">
+      <input type="search" id="q" value="${esc(FILT.q)}" placeholder="キーワードで探す" enterkeyhint="search" autocomplete="off">
+      <button class="chip-btn" id="filter-open" data-act="filters"></button>
+      <button class="chip-btn" data-act="fav-filter" aria-pressed="${FILT.fav}">★ お気に入りのみ</button>
+    </div>
+    <div class="active-filters" id="active-filters"></div>
+    <p class="count" id="list-count"></p>
+    <div class="items" id="list-items"></div>
+  </div>
+  ${bar(btn('新しく記録する', 'new', 'primary'))}`;
+  renderResults();
+  const q = $('#q'); q.addEventListener('input', () => { FILT.q = q.value; renderResults(); });
+  window.scrollTo(0, listScroll);
+}
+function openFilters() {
+  const root = $('#overlay');
+  root.innerHTML = `<div class="scrim" id="scrim"><div class="sheet" role="dialog" aria-modal="true" aria-label="絞り込み">
+    <h2>絞り込み</h2>
+    ${sec('f-age', '年代', choices('filter', 'age', AGES, FILT.age, true))}
+    ${sec('f-role', '立場', choices('filter', 'role', ROLES, FILT.role, true))}
+    ${sec('f-when', '疲れ方（どんな時にやる？）', choices('filter', 'when', WHENS, FILT.when, true))}
+    ${sec('f-dur', '時間', choices('filter', 'dur', DURS, FILT.dur, true))}
+    ${sec('f-place', '場所', choices('filter', 'place', PLACES, FILT.place, true))}
+    ${sec('f-rest', '休めた感', `<div class="choices" data-scope="filter" data-group="restMin" data-num="1" data-clear="1" data-multi="0">${[3, 4, 5].map(n => `<button type="button" class="choice" data-val="${n}" aria-pressed="${FILT.restMin === n}">★${n}${n < 5 ? '以上' : ''}</button>`).join('')}</div>`)}
+    <div class="sheet-actions">${btn('すべて解除', 'filters-clear')}${btn('', 'filters-close', 'primary', 'id="sheet-apply"')}</div>
+  </div></div>`;
+  root.onclick = e => { if (e.target.id === 'scrim') closeFilters(); };
+  renderResults();
+}
+function closeFilters() { const root = $('#overlay'); root.innerHTML = ''; root.onclick = null; }
+
+/* ---- detail ----------------------------------------------------------- */
+function viewDetail(id) {
+  const hit = findRest(id);
+  if (!hit) { app.innerHTML = `<div class="screen">${topbar('記録', '#/list')}<p class="empty">この記録は見つかりません。</p></div>`; return; }
+  const { p, r } = hit, d = r.deep || {};
+  const row = (k, v) => v ? `<div class="kv-row"><dt>${k}</dt><dd>${v}</dd></div>` : '';
+  const pills = r.when.map(w => `<span class="pill">${esc(w)}</span>`).join('');
+  app.innerHTML = `<div class="screen">
+    ${topbar('休み方の詳細', '#/list', 'go', true)}
+    <h1 class="detail-title">${esc(r.text || '（休み方が未入力）')}</h1>
+    <div>${pills}</div>
+    <dl class="kv" style="margin:0">
+      ${row('時間', esc(r.dur))}${row('場所', esc(r.place))}${row('誰と', esc(r.who))}
+      ${row('休めた感', `<span class="stars">${stars(r.rest)}</span>`)}${row('おすすめ度', `<span class="stars">${stars(r.rec)}</span>`)}
+      ${row('メモ', esc(r.memo))}
+    </dl>
+    ${inkHasContent(r.ink) ? `<section class="sec"><h3>手書きメモ</h3><div class="ink-wrap static" id="detail-ink"><canvas aria-label="手書きメモ"></canvas></div></section>` : ''}
+    ${deepHasContent(r.deep) ? `<h3>深掘り</h3><dl class="kv" style="margin:0">${row('なぜこの休み方をするようになった？', esc(d.why))}${row('やった後、どんな感じ？', esc(d.after))}${row('合わなかった休み方', esc(d.mismatch))}${row('その理由', esc(d.mismatchWhy))}${row('ガチャや図鑑で使ってみたい？', esc(d.gacha))}${row('その他メモ', esc(d.memo))}</dl>` : ''}
+    <dl class="kv" style="margin:0">${row('回答者', `<button class="link-btn" style="padding:0;align-self:auto;color:var(--ink)" data-act="open-person" data-id="${p.id}">${p.id}　${hasText(p.nick) ? esc(p.nick.trim()) + '　' : ''}${esc(p.age || '—')} / ${esc(p.role || '—')}</button>`)}${row('疲れを感じる頻度', esc(p.freq))}${row('記録日時', fmtDT(r.createdAt))}</dl>
+  </div>
+  ${bar(`<button type="button" class="btn narrow" data-act="fav" data-id="${r.id}" aria-pressed="${!!r.fav}">${r.fav ? '★ 目印' : '☆ 目印'}</button>` + btn('編集', 'edit-rest', 'primary', `data-id="${r.id}"`) + btn('削除', 'delete-rest', 'danger narrow', `data-id="${r.id}"`))}`;
+  if (inkHasContent(r.ink)) mountStaticInk($('#detail-ink'), r.ink);
+}
+
+/* ---- respondent -------------------------------------------------------- */
+function viewPerson(id) {
+  const p = findPerson(id);
+  if (!p) { app.innerHTML = `<div class="screen">${topbar('回答者', '#/list')}<p class="empty">この回答者は見つかりません。</p></div>`; return; }
+  app.innerHTML = `<div class="screen">
+    ${topbar('回答者 ' + p.id, '#/list')}
+    <p class="note">記録日時 ${fmtDT(p.createdAt)}</p>
+    ${sec('nick', 'ニックネーム', nickField(p.nick), '任意')}
+    ${sec('age', '年代', choices('person', 'age', AGES, p.age, false))}
+    ${sec('role', '現在の立場', choices('person', 'role', ROLES, p.role, false))}
+    ${sec('freq', '疲れを感じる頻度', choices('person', 'freq', FREQS, p.freq, false))}
+    <h3>休み方 ${p.rests.length}件</h3>
+    <div class="items">${p.rests.map(r => `<div class="mini"><button class="mini-main" data-act="open" data-id="${r.id}"><b>${esc(r.text || '（休み方が未入力）')}</b><span>${restMetaShort(r)}</span></button></div>`).join('')}</div>
+    ${btn('この人に休み方を追加', 'add-to-person', '', `data-id="${p.id}"`)}
+    ${btn('この回答者を削除', 'delete-person', 'danger', `data-id="${p.id}"`)}
+  </div>
+  ${bar(btn('保存して戻る', 'person-done', 'primary'))}`;
+  refreshStatus();
+}
+
+/* ---- export ------------------------------------------------------------ */
+const CSV_COLS = ['回答者ID', 'ニックネーム', '回答日時', '年代', '立場', '疲労頻度', '休み方', '疲れ方', '時間', '場所', '一人／複数', '休めた感', 'おすすめ度', 'お気に入り', 'メモ', '手書きメモ', '深掘り回答'];
+function csvCell(v) {
+  let s = v == null ? '' : String(v);
+  if (/^[=+\-@]/.test(s)) s = "'" + s;                       // keep spreadsheets from reading free text as a formula
+  return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+function deepText(d) {
+  if (!deepHasContent(d)) return '';
+  return [['なぜこの休み方をするようになった？', d.why], ['やった後どんな感じ？', d.after], ['合わなかった休み方', d.mismatch], ['その理由', d.mismatchWhy], ['ガチャや図鑑で使ってみたい？', d.gacha], ['その他メモ', d.memo]]
+    .filter(x => hasText(x[1])).map(x => `【${x[0]}】${x[1]}`).join('\n');
+}
+function buildCSV() {
+  const lines = [CSV_COLS.map(csvCell).join(',')];
+  const people = db.people.slice().sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
+  people.forEach(p => {
+    const base = [p.id, (p.nick || '').trim(), fmtDT(p.createdAt), p.age, p.role, p.freq];
+    if (!p.rests.length) lines.push(base.concat(['', '', '', '', '', '', '', '', '', '', '']).map(csvCell).join(','));
+    p.rests.forEach(r => lines.push(base.concat([r.text, r.when.join('／'), r.dur, r.place, r.who, r.rest == null ? '' : r.rest, r.rec == null ? '' : r.rec, r.fav ? '★' : '', r.memo, inkHasContent(r.ink) ? 'あり' : '', deepText(r.deep)]).map(csvCell).join(',')));
+  });
+  return '﻿' + lines.join('\r\n') + '\r\n';
+}
+function buildJSON() {
+  const s = stats();
+  return JSON.stringify({ app: 'yasumo-survey', version: 1, exportedAt: now(), counts: s, note: '手書きメモ(ink.s[].p)は "x,y,筆圧0-9" を空白で区切った座標列です（座標は幅1000×高さ560の空間）', people: db.people }, null, 1);
+}
+function stamp() { const d = new Date(); return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`; }
+function download(name, text, mime) {
+  const blob = new Blob([text], { type: mime + ';charset=utf-8' }), url = URL.createObjectURL(blob), a = document.createElement('a');
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 8000);
+}
+function viewExport() {
+  const s = stats(), used = ((lsGet(LS_KEY) || '').length * 2), mb = used / 1e6, pct = Math.min(100, Math.round(mb / 5 * 100));
+  app.innerHTML = `<div class="screen">
+    ${topbar('データを書き出す', '#/')}
+    ${statsBlock(s)}
+    ${btn('CSVで書き出す', 'export-csv', 'primary xl')}
+    <p class="note">1行が1つの休み方です。Excelやスプレッドシートでそのまま開けます。</p>
+    ${btn('JSONで書き出す', 'export-json', '')}
+    <p class="note">手書きメモを含む全データです。バックアップに向いています。</p>
+    <div class="sec"><h3>保存データの量</h3><div class="meter"><i style="width:${Math.max(2, pct)}%"></i></div><p class="note">約 ${mb.toFixed(2)}MB（ブラウザの上限の目安は約5MB）。${pct >= 70 ? '上限が近いので、書き出して控えを取ってください。' : ''}</p></div>
+    <p class="note">Safariは、しばらく開かないと保存データを消すことがあります。調査の合間にも書き出しておくと安心です。</p>
+  </div>`;
+}
+
+/* ================================================================ status + changes */
+function scopeObj(scope) {
+  if (scope === 'person') {
+    const h = location.hash.split('/');
+    if (h[1] === 'person') return findPerson(h[2]);
+    return draft && draft.person;
+  }
+  if (scope === 'form') { const s = curSession(); return s && s.form; }
+  if (scope === 'deep') { const s = curSession(); return s && s.form && (s.form.deep || (s.form.deep = newDeep())); }
+  if (scope === 'filter') return FILT;
+  return null;
+}
+function curSession() { return location.hash.startsWith('#/new') ? draft : editSession; }
+function touchSession() { if (location.hash.startsWith('#/new')) saveDraft(); }
+
+function refreshStatus() {
+  const h = location.hash.split('/'), sess = curSession(), f = sess && sess.form, p = scopeObj('person');
+  const done = {
+    text: f && hasText(f.text), when: f && f.when.length > 0, dur: f && !!f.dur, place: f && !!f.place, who: f && !!f.who,
+    rest: f && f.rest != null, rec: f && f.rec != null, memo: f && (hasText(f.memo) || inkHasContent(f.ink)),
+    nick: p && hasText(p.nick), age: p && !!p.age, role: p && !!p.role, freq: p && !!p.freq
+  };
+  $$('[data-sec]').forEach(el => { const k = el.dataset.sec; if (k in done) el.classList.toggle('done', !!done[k]); });
+}
+function refreshGroup(g, obj) {
+  const key = g.dataset.group, val = obj[key], multi = g.dataset.multi === '1', isScale = g.dataset.scale === '1';
+  $$('.choice', g).forEach(b => {
+    const v = g.dataset.num === '1' ? Number(b.dataset.val) : b.dataset.val;
+    b.setAttribute('aria-pressed', String(multi ? (val || []).includes(v) : isScale ? (val != null && v <= val) : val === v));
+  });
+}
+function handleChoice(b) {
+  const g = b.closest('.choices'); if (!g || !g.dataset.scope) return;
+  const obj = scopeObj(g.dataset.scope); if (!obj) return;
+  const key = g.dataset.group, multi = g.dataset.multi === '1', num = g.dataset.num === '1', clear = g.dataset.clear === '1';
+  const val = num ? Number(b.dataset.val) : b.dataset.val;
+  if (multi) { const arr = obj[key] || (obj[key] = []), i = arr.indexOf(val); if (i < 0) arr.push(val); else arr.splice(i, 1); }
+  else obj[key] = (clear && obj[key] === val) ? (num ? null : '') : val;
+  refreshGroup(g, obj); refreshStatus();
+  if (g.dataset.scope === 'filter') renderResults();
+  else if (g.dataset.scope === 'person' && location.hash.startsWith('#/person')) { obj.updatedAt = now(); saveDB(); }
+  else touchSession();
+}
+document.addEventListener('input', e => {
+  const t = e.target.closest('[data-bind]'); if (!t) return;
+  const [scope, key] = t.dataset.bind.split('.'), obj = scopeObj(scope); if (!obj) return;
+  obj[key] = t.value; refreshStatus(); touchSession();
+  if (scope === 'person' && location.hash.startsWith('#/person')) { obj.updatedAt = now(); savePersonSoon(); }
+});
+let personSaveTimer = 0;                                  // typing in a saved respondent's nickname is written a moment later
+const savePersonSoon = () => { clearTimeout(personSaveTimer); personSaveTimer = setTimeout(flushPersonSave, 300); };
+function flushPersonSave() { if (personSaveTimer) { clearTimeout(personSaveTimer); personSaveTimer = 0; saveDB(); } }
+window.addEventListener('pagehide', flushPersonSave);
+
+/* ================================================================ actions */
+function nav(hash) { if (location.hash === hash) route(); else location.hash = hash; }
+function startNew(fresh) {
+  if (fresh) { draft = null; lsDel(DRAFT_KEY); }
+  nav('#/new');
+}
+function commitDraftRest() {
+  const f = draft.form; f.text = f.text.trim(); f.updatedAt = now();
+  if (draft.idx >= 0) draft.rests[draft.idx] = f; else draft.rests.push(f);
+  draft.form = null; draft.idx = -1; draft.page = 0; draft.step = 'summary'; saveDraft(); viewNew();
+}
+function savePerson() {
+  const p = draft.person, id = personNo(db.nextNo);
+  db.people.push({ id, createdAt: now(), updatedAt: now(), age: p.age, role: p.role, freq: p.freq, nick: (p.nick || '').trim(), rests: draft.rests });
+  db.nextNo += 1;
+  if (!saveDB()) { db.people.pop(); db.nextNo -= 1; return; }
+  draft = null; lsDel(DRAFT_KEY); window.scrollTo(0, 0); nav('#/saved');
+}
+async function onAct(act, el) {
+  const d = el.dataset;
+  switch (act) {
+    case 'go': if (d.to === '#/list' && !d.keep) listScroll = 0; nav(d.to); break;
+    case 'new': startNew(false); break;
+    case 'discard-draft': if (await confirmDialog('入力途中の記録を破棄しますか？', '破棄する')) { draft = null; lsDel(DRAFT_KEY); viewHome(); } break;
+    case 'basic-next':
+      draft.step = draft.rests.length ? 'summary' : 'rest'; saveDraft(); viewNew(); window.scrollTo(0, 0); break;
+    case 'draft-basic': draft.step = 'basic'; saveDraft(); viewNew(); break;
+    case 'draft-add': draft.step = 'rest'; if (!draft.form || draft.idx >= 0) { draft.form = newRest(); draft.idx = -1; } draft.page = 0; saveDraft(); viewNew(); window.scrollTo(0, 0); break;
+    case 'draft-edit': draft.idx = Number(d.i); draft.form = clone(draft.rests[draft.idx]); draft.step = 'rest'; draft.page = 0; saveDraft(); viewNew(); window.scrollTo(0, 0); break;
+    case 'draft-del': if (await confirmDialog('この休み方を削除しますか？')) { draft.rests.splice(Number(d.i), 1); saveDraft(); viewNew(); } break;
+    case 'save-person': savePerson(); break;
+    case 'form-page': { const s = curSession(); if (!s) break; s.page = Number(d.p); rerenderForm(); break; }
+    case 'form-next': { const s = draft; s.page += 1; saveDraft(); rerenderForm(); break; }
+    case 'form-prev': {
+      const s = draft;
+      if (s.page > 0) { s.page -= 1; saveDraft(); rerenderForm(); }
+      else { s.step = s.rests.length ? 'summary' : 'basic'; saveDraft(); viewNew(); }
+      break;
+    }
+    case 'form-commit': commitDraftRest(); window.scrollTo(0, 0); break;
+    case 'form-fav': { const s = curSession(); s.form.fav = !s.form.fav; el.setAttribute('aria-pressed', String(s.form.fav)); touchSession(); break; }
+    case 'deep-toggle': { const s = curSession(); const open = !(s.deepOpen || deepHasContent(s.form.deep)); s.deepOpen = open; if (open && !s.form.deep) s.form.deep = newDeep(); if (!open && s.form.deep && !deepHasContent(s.form.deep)) s.form.deep = null; rerenderForm(true); break; }
+    case 'edit-cancel': nav(editSession && editSession.mode === 'add' ? '#/person/' + editSession.personId : '#/detail/' + editSession.restId); break;
+    case 'edit-save': {
+      const s = editSession;
+      s.form.text = s.form.text.trim(); s.form.updatedAt = now();
+      if (!deepHasContent(s.form.deep)) s.form.deep = null;
+      if (s.mode === 'add') { const p = findPerson(s.personId); p.rests.push(s.form); p.updatedAt = now(); }
+      else { const hit = findRest(s.restId); const i = hit.p.rests.findIndex(x => x.id === s.restId); hit.p.rests[i] = s.form; hit.p.updatedAt = now(); }
+      if (saveDB()) { const id = s.form.id; editSession = null; toast('保存しました'); nav(s.mode === 'add' ? '#/person/' + s.personId : '#/detail/' + id); }
+      break;
+    }
+    case 'draft-edit-cancel': draft.form = null; draft.idx = -1; draft.page = 0; draft.step = 'summary'; saveDraft(); viewNew(); window.scrollTo(0, 0); break;
+    case 'person-done': flushPersonSave(); listScroll = 0; nav('#/list'); break;
+    case 'open': listScroll = window.scrollY; nav('#/detail/' + d.id); break;
+    case 'fav': {
+      const hit = findRest(d.id); if (!hit) break; hit.r.fav = !hit.r.fav; saveDB();
+      if (location.hash.startsWith('#/detail')) { viewDetail(d.id); } else renderResults();
+      break;
+    }
+    case 'fav-filter': FILT.fav = !FILT.fav; el.setAttribute('aria-pressed', String(FILT.fav)); renderResults(); break;
+    case 'filters': openFilters(); break;
+    case 'filters-close': closeFilters(); break;
+    case 'filters-clear': ['age', 'role', 'when', 'dur', 'place'].forEach(k => { FILT[k] = []; }); FILT.restMin = null; openFilters(); break;
+    case 'unfilter': if (d.k === 'restMin') FILT.restMin = null; else FILT[d.k] = FILT[d.k].filter(x => x !== d.v); renderResults(); break;
+    case 'edit-rest': { const hit = findRest(d.id); if (!hit) break; editSession = { mode: 'edit', restId: d.id, personId: hit.p.id, form: clone(hit.r), page: 0, deepOpen: false }; nav('#/edit/' + d.id); break; }
+    case 'delete-rest': if (await confirmDialog('この休み方を削除しますか？\nこの操作は元に戻せません。')) { const hit = findRest(d.id); hit.p.rests = hit.p.rests.filter(x => x.id !== d.id); saveDB(); toast('削除しました'); nav('#/list'); } break;
+    case 'open-person': nav('#/person/' + d.id); break;
+    case 'add-to-person': editSession = { mode: 'add', personId: d.id, form: newRest(), page: 0, deepOpen: false }; nav('#/add/' + d.id); break;
+    case 'delete-person': { const p = findPerson(d.id); if (p && await confirmDialog(`回答者 ${p.id} と、その休み方${p.rests.length}件を削除しますか？\nこの操作は元に戻せません。`)) { db.people = db.people.filter(x => x.id !== d.id); saveDB(); toast('削除しました'); nav('#/list'); } break; }
+    case 'export-csv': if (!db.people.length) { toast('書き出すデータがありません'); break; } download(`yasumo-survey_${stamp()}.csv`, buildCSV(), 'text/csv'); toast('CSVを書き出しました'); break;
+    case 'export-json': if (!db.people.length) { toast('書き出すデータがありません'); break; } download(`yasumo-survey_${stamp()}.json`, buildJSON(), 'application/json'); toast('JSONを書き出しました'); break;
+  }
+}
+function rerenderForm(keepScroll) {
+  const y = window.scrollY; route(true); if (keepScroll) window.scrollTo(0, y); else window.scrollTo(0, 0);
+}
+document.addEventListener('click', e => {
+  const c = e.target.closest('.choice'); if (c) { handleChoice(c); return; }
+  const a = e.target.closest('[data-act]'); if (a) onAct(a.dataset.act, a);
+});
+
+/* ================================================================ router */
+const app = $('#app');
+function route(keepFilterSheet) {
+  flushPersonSave();
+  if (liveInk) { liveInk.destroy(); liveInk = null; }
+  const parts = location.hash.replace(/^#\/?/, '').split('/'), name = parts[0] || 'home';
+  if (!keepFilterSheet && name !== 'list') closeFilters();
+  switch (name) {
+    case 'new': viewNew(); break;
+    case 'saved': viewSaved(); break;
+    case 'list': viewList(); break;
+    case 'detail': viewDetail(parts[1]); break;
+    case 'person': viewPerson(parts[1]); break;
+    case 'edit': {
+      if (!editSession || editSession.restId !== parts[1]) { const hit = findRest(parts[1]); if (!hit) { viewDetail(parts[1]); break; } editSession = { mode: 'edit', restId: parts[1], personId: hit.p.id, form: clone(hit.r), page: 0, deepOpen: false }; }
+      viewRestForm(editSession, 'edit'); break;
+    }
+    case 'add': {
+      if (!editSession || editSession.mode !== 'add' || editSession.personId !== parts[1]) editSession = { mode: 'add', personId: parts[1], form: newRest(), page: 0, deepOpen: false };
+      viewRestForm(editSession, 'add'); break;
+    }
+    case 'export': viewExport(); break;
+    default: viewHome();
+  }
+  if (name !== 'list' && !keepFilterSheet) window.scrollTo(0, 0);
+}
+window.addEventListener('hashchange', () => route());
+route();
+})();
+</script>
+</body>
+</html>
