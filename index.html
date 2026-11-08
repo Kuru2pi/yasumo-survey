@@ -126,6 +126,26 @@ h1, h2, h3, p { margin: 0; }
 .qex { margin: 0 4px; padding-left: 12px; border-left: 3px solid #d1d1d6; color: var(--mute); font-size: 14px; line-height: 1.6; display: flex; flex-direction: column; gap: 6px; }
 .qex ul { margin: 0; padding: 0; list-style: none; }
 .qex li::before { content: "・"; }
+.hint li b { font-weight: 600; }
+
+/* several rests at once: a table row on wide screens, a small card on phones */
+.rows { background: var(--card); border-radius: 12px; overflow: hidden; }
+.rowhead { display: none; }
+.rowgrid { padding: 10px 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.rowgrid + .rowgrid { border-top: 0.5px solid var(--sep); }
+.rx { width: 100%; min-width: 0; min-height: 44px; padding: 0 12px; border: 0; border-radius: 8px; background: var(--fill); color: var(--ink); font: 400 16px/1.3 var(--font); }
+.rx:focus { outline: 2px solid var(--tint); outline-offset: 0; }
+.r-text, .r-kind { grid-column: 1 / -1; }
+select.rx { -webkit-appearance: none; appearance: none; padding-right: 30px; text-overflow: ellipsis; background-repeat: no-repeat; background-position: right 11px center; background-size: 11px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8' fill='none' stroke='%236c6c70' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 1.5l5 5 5-5'/%3E%3C/svg%3E"); }
+select.rx:invalid { color: var(--mute); }
+@media (min-width: 640px) {
+  .rowhead, .rowgrid { grid-template-columns: 1fr 170px 104px 132px; }
+  .rowhead { display: grid; gap: 8px; padding: 10px 12px 0; color: var(--mute); font-size: 13px; }
+  .rowgrid { padding: 6px 12px; }
+  .rowgrid:last-child { padding-bottom: 12px; }
+  .r-text, .r-kind { grid-column: auto; }
+}
 .hint summary {
   list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 4px; color: var(--tint); font: 400 15px var(--font);
 }
@@ -282,6 +302,16 @@ const ROLES = ['学生', '会社員', 'アルバイト・パート', '自営業�
 const FREQS = ['ほぼ毎日', 'よく感じる', 'ときどき感じる', 'ほとんど感じない'];
 const WHENS = ['体が疲れた時', '頭を使いすぎた時', '気持ちが疲れた時', '人と関わって疲れた時', 'やる気が出ない時', '生活リズムが乱れている時', '特に決まっていない', 'その他'];
 const DURS = ['5分以内', '15分くらい', '30分くらい', '1時間くらい', 'それ以上'];
+/* the six rest types of the Yasumo app (actualRestOptions in its index.html), with its own examples */
+const KINDS = [
+  { v: '緩める休養', eg: 'ストレッチ・入浴・マッサージ' },
+  { v: '離れる休養', eg: 'スマホ・仕事・勉強から離れる' },
+  { v: '出す休養', eg: '話す・書き出す・泣く' },
+  { v: '閉じる休養', eg: '一人になる・人との関わりを減らす' },
+  { v: '小さく動く休養', eg: '散歩・軽い家事' },
+  { v: '整える休養', eg: '睡眠・食事・生活リズムを整える' }
+];
+const KIND_NAMES = KINDS.map(k => k.v);
 const PLACES = ['家', '外', '学校・職場', '移動中', 'どこでも', 'その他'];
 const WHOS = ['一人', '誰かと', 'どちらでも'];
 const GACHA = ['使ってみたい', 'どちらとも言えない', 'あまり使わない'];
@@ -348,7 +378,7 @@ const stars = n => n ? '★'.repeat(n) + '☆'.repeat(5 - n) : '未回答';
 const personNo = n => String(n).padStart(3, '0');
 const hasText = v => typeof v === 'string' && v.trim() !== '';
 const clone = o => JSON.parse(JSON.stringify(o));
-const newRest = () => ({ id: uid(), text: '', when: [], dur: '', place: '', who: '', rest: null, rec: null, memo: '', ink: null, fav: false, deep: null, createdAt: now(), updatedAt: now() });
+const newRest = () => ({ id: uid(), text: '', kind: '', when: [], dur: '', place: '', who: '', rest: null, rec: null, memo: '', ink: null, fav: false, deep: null, createdAt: now(), updatedAt: now() });
 const newDeep = () => ({ why: '', after: '', mismatch: '', mismatchWhy: '', gacha: '', memo: '' });
 const deepHasContent = d => !!d && Object.keys(d).some(k => hasText(d[k]));
 const inkHasContent = i => !!i && Array.isArray(i.s) && i.s.length > 0;
@@ -505,7 +535,8 @@ const inkBlock = () => `
   </div>`;
 
 /* ================================================================ state */
-let editSession = null;      // edit / add of an already saved rest
+let editSession = null;      // edit of an already saved rest
+let addRows = null;          // several rests being added to an already saved respondent
 let liveInk = null;          // pen pad of the open form
 let listScroll = 0;
 const FILT = { q: '', age: [], role: [], when: [], dur: [], place: [], restMin: null, fav: false };
@@ -550,6 +581,7 @@ function viewNew() {
   if (!draft) { draft = { person: { nick: '', age: '', role: '', freq: '' }, rests: [], step: 'basic', form: null, idx: -1, page: 0 }; saveDraft(); }
   if (draft.step === 'basic') return viewBasic();
   if (draft.step === 'summary') return viewSummary();
+  if (draft.step === 'rows') return viewRows('new');
   if (!draft.form) { draft.form = newRest(); draft.idx = -1; draft.page = 0; }
   return viewRestForm(draft, 'new');
 }
@@ -582,7 +614,7 @@ function viewSummary() {
   </div>
   ${bar(btn('休み方を追加', 'draft-add', 'mid') + btn('この人の記録を保存', 'save-person', 'primary'))}`;
 }
-const restMetaShort = r => [r.when.join('・'), r.dur, r.rest ? '休めた感 ' + r.rest : ''].filter(Boolean).join(' / ') || '詳細なし';
+const restMetaShort = r => [r.kind, r.when.join('・'), r.dur, r.rest ? '休めた感 ' + r.rest : ''].filter(Boolean).join(' / ') || '詳細なし';
 
 /* ---- rest form (new / edit / add) ------------------------------------ */
 function restPos(sess, mode) {                    // which answer of this respondent the form is for (0 = first)
@@ -591,15 +623,48 @@ function restPos(sess, mode) {                    // which answer of this respon
   if (!p) return 0;
   return mode === 'add' ? p.rests.length : Math.max(0, p.rests.findIndex(r => r.id === sess.restId));
 }
+const egBlock = () => { const E = QUESTION.eg; return `<div class="qex"><p>${esc(E.lead)}</p><ul>${E.items.map(i => `<li>${esc(i)}</li>`).join('')}</ul><p>${esc(E.tail)}</p><p>${esc(E.close)}</p></div>`; };
+const questionHead = withEg => `<h3>${esc(QUESTION.q)}</h3><p class="qnote">${esc(QUESTION.note)}</p>${withEg ? egBlock() : ''}`;
+const hintBlock = () => `<details class="hint"><summary>聞き方のヒント</summary><div><p class="note">調査者用です。必ず聞く質問ではなく、会話に詰まった時だけ使ってください。</p><ul>${HINTS.map(h => `<li>${esc(h)}</li>`).join('')}</ul></div></details>`;
+const kindGuide = () => `<details class="hint"><summary>休みの種類のめやす</summary><div><ul>${KINDS.map(k => `<li><b>${esc(k.v)}</b>　${esc(k.eg)}</li>`).join('')}</ul></div></details>`;
 function questionSec(mode, f) {
-  const Q = QUESTION;
-  return `<section class="sec q" data-sec="text"><h3>${esc(Q.q)}</h3>
-    <p class="qnote">${esc(Q.note)}</p>
-    ${Q.eg ? `<div class="qex"><p>${esc(Q.eg.lead)}</p><ul>${Q.eg.items.map(i => `<li>${esc(i)}</li>`).join('')}</ul><p>${esc(Q.eg.tail)}</p><p>${esc(Q.eg.close)}</p></div>` : ''}
-    <textarea id="f-text" class="field" rows="3" data-bind="form.text" placeholder="${esc(Q.ph)}" enterkeyhint="done">${esc(f.text)}</textarea>
-    ${mode === 'edit' ? '' : '<p class="note">1つの行動を1件として入力します。次の行動は、保存したあとに「休み方を追加」で入力できます。</p>'}
-    <details class="hint"><summary>聞き方のヒント</summary><div><p class="note">調査者用です。必ず聞く質問ではなく、会話に詰まった時だけ使ってください。</p><ul>${HINTS.map(h => `<li>${esc(h)}</li>`).join('')}</ul></div></details>
+  return `<section class="sec q" data-sec="text">${questionHead(true)}
+    <textarea id="f-text" class="field" rows="3" data-bind="form.text" placeholder="${esc(QUESTION.ph)}" enterkeyhint="done">${esc(f.text)}</textarea>
+    ${hintBlock()}
   </section>`;
+}
+
+/* ---- several rests at once: one row = one rest (text, type, recommend, time) ---- */
+const blankRow = () => ({ text: '', kind: '', rec: null, dur: '' });
+const blankRows = () => [blankRow(), blankRow(), blankRow()];
+const rowFilled = r => hasText(r.text) || !!r.kind || r.rec != null || !!r.dur;
+function restsFromRows(rows) {                    // empty rows are dropped; the first row gets the latest stamp so the list keeps the typed order
+  const filled = rows.filter(rowFilled), t = Date.now();
+  return filled.map((r, i) => { const at = new Date(t + filled.length - i).toISOString(); return Object.assign(newRest(), { text: r.text.trim(), kind: r.kind, rec: r.rec, dur: r.dur, createdAt: at, updatedAt: at }); });
+}
+function rowsGrid(rows) {
+  const opt = (val, cur, label) => `<option value="${esc(val)}"${String(cur == null ? '' : cur) === String(val) ? ' selected' : ''}>${esc(label)}</option>`;
+  return `<div class="rows"><div class="rowhead"><span>休み方</span><span>休みの種類</span><span>おすすめ度</span><span>時間</span></div>${rows.map((r, i) => `<div class="rowgrid" data-row="${i}">
+    <input type="text" class="rx r-text" data-rowbind="text" value="${esc(r.text)}" placeholder="休み方" autocomplete="off" enterkeyhint="next" aria-label="休み方 ${i + 1}行目">
+    <select class="rx r-kind" data-rowbind="kind" required aria-label="休みの種類 ${i + 1}行目">${opt('', r.kind, '休みの種類')}${KIND_NAMES.map(k => opt(k, r.kind, k)).join('')}</select>
+    <select class="rx r-rec" data-rowbind="rec" required aria-label="おすすめ度 ${i + 1}行目">${opt('', r.rec, 'おすすめ度')}${[1, 2, 3, 4, 5].map(n => opt(n, r.rec, '★' + n)).join('')}</select>
+    <select class="rx r-dur" data-rowbind="dur" required aria-label="時間 ${i + 1}行目">${opt('', r.dur, '時間')}${DURS.map(d => opt(d, r.dur, d)).join('')}</select>
+  </div>`).join('')}</div>`;
+}
+function viewRows(mode) {
+  const s = mode === 'add' ? addRows : draft;
+  if (!s.rows) s.rows = blankRows();
+  const head = mode === 'add' ? topbar('休み方を追加', '#/person/' + s.personId) : topbar('休み方', '', 'rows-back');
+  const actions = mode === 'add' ? btn('やめる', 'rows-cancel', 'narrow') + btn('保存して戻る', 'rows-save', 'primary') : btn('戻る', 'rows-back', 'narrow') + btn('次へ', 'rows-next', 'primary');
+  app.innerHTML = `<div class="screen">${head}
+    <section class="sec q">${questionHead(false)}</section>
+    ${rowsGrid(s.rows)}
+    ${btn('＋ 行を追加', 'rows-add')}
+    <p class="note">1行に1つの行動を入力します。空の行は保存されません。</p>
+    ${egBlock()}
+    ${hintBlock()}
+    ${kindGuide()}
+  </div>${bar(actions)}`;
 }
 function viewRestForm(sess, mode) {
   const f = sess.form, page = sess.page || 0;
@@ -609,7 +674,8 @@ function viewRestForm(sess, mode) {
     body = questionSec(mode, f) +
       sec('when', 'どんな時にやる？', choices('form', 'when', WHENS, f.when, true), '複数選択');
   } else if (page === 1) {
-    body = sec('dur', 'かかる時間', choices('form', 'dur', DURS, f.dur, false, '', 'data-clear="1"')) +
+    body = sec('kind', '休みの種類', choices('form', 'kind', KIND_NAMES, f.kind, false, '', 'data-clear="1"')) +
+      sec('dur', 'かかる時間', choices('form', 'dur', DURS, f.dur, false, '', 'data-clear="1"')) +
       sec('place', 'どこでやる？', choices('form', 'place', PLACES, f.place, false, '', 'data-clear="1"')) +
       sec('who', '誰とやる？', choices('form', 'who', WHOS, f.who, false, '', 'data-clear="1"'));
   } else {
@@ -674,7 +740,7 @@ function rowMatches({ p, r }) {
   if (FILT.fav && !r.fav) return false;
   const q = FILT.q.trim().toLowerCase();
   if (q) {
-    const d = r.deep || {}, hay = [r.text, r.memo, d.why, d.after, d.mismatch, d.mismatchWhy, d.gacha, d.memo, p.nick, p.age, p.role, p.freq, r.when.join(' '), r.dur, r.place, r.who].join(' ').toLowerCase();
+    const d = r.deep || {}, hay = [r.text, r.kind, r.memo, d.why, d.after, d.mismatch, d.mismatchWhy, d.gacha, d.memo, p.nick, p.age, p.role, p.freq, r.when.join(' '), r.dur, r.place, r.who].join(' ').toLowerCase();
     if (!q.split(/\s+/).every(t => hay.includes(t))) return false;
   }
   return true;
@@ -683,7 +749,7 @@ function itemHtml({ p, r }) {
   return `<div class="item"><button class="item-main" data-act="open" data-id="${r.id}">
       <span class="item-title">${esc(r.text || '（休み方が未入力）')}</span>
       <span class="item-meta">${hasText(p.nick) ? esc(p.nick.trim()) + '　' : ''}${esc(p.age || '—')} / ${esc(p.role || '—')}</span>
-      <span class="item-line">${r.when.length ? `<span>${esc(r.when.join('・'))}</span>` : ''}${r.dur ? `<span>${esc(r.dur)}</span>` : ''}${r.place ? `<span>${esc(r.place)}</span>` : ''}</span>
+      <span class="item-line">${r.kind ? `<span>${esc(r.kind)}</span>` : ''}${r.when.length ? `<span>${esc(r.when.join('・'))}</span>` : ''}${r.dur ? `<span>${esc(r.dur)}</span>` : ''}${r.place ? `<span>${esc(r.place)}</span>` : ''}</span>
       <span class="item-line"><span>休めた感：<span class="stars">${stars(r.rest)}</span></span></span>
     </button><button class="favbtn" data-act="fav" data-id="${r.id}" aria-pressed="${!!r.fav}" aria-label="面白い休み方の目印">★</button></div>`;
 }
@@ -745,7 +811,7 @@ function viewDetail(id) {
     <h1 class="detail-title">${esc(r.text || '（休み方が未入力）')}</h1>
     <div>${pills}</div>
     <dl class="kv" style="margin:0">
-      ${row('時間', esc(r.dur))}${row('場所', esc(r.place))}${row('誰と', esc(r.who))}
+      ${row('休みの種類', esc(r.kind))}${row('時間', esc(r.dur))}${row('場所', esc(r.place))}${row('誰と', esc(r.who))}
       ${row('休めた感', `<span class="stars">${stars(r.rest)}</span>`)}${row('おすすめ度', `<span class="stars">${stars(r.rec)}</span>`)}
       ${row('メモ', esc(r.memo))}
     </dl>
@@ -778,7 +844,7 @@ function viewPerson(id) {
 }
 
 /* ---- export ------------------------------------------------------------ */
-const CSV_COLS = ['回答者ID', 'ニックネーム', '回答日時', '年代', '立場', '疲労頻度', '休み方', '疲れ方', '時間', '場所', '一人／複数', '休めた感', 'おすすめ度', 'お気に入り', 'メモ', '手書きメモ', '深掘り回答'];
+const CSV_COLS = ['回答者ID', 'ニックネーム', '回答日時', '年代', '立場', '疲労頻度', '休み方', '休みの種類', '疲れ方', '時間', '場所', '一人／複数', '休めた感', 'おすすめ度', 'お気に入り', 'メモ', '手書きメモ', '深掘り回答'];
 function csvCell(v) {
   let s = v == null ? '' : String(v);
   if (/^[=+\-@]/.test(s)) s = "'" + s;                       // keep spreadsheets from reading free text as a formula
@@ -794,8 +860,8 @@ function buildCSV() {
   const people = db.people.slice().sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
   people.forEach(p => {
     const base = [p.id, (p.nick || '').trim(), fmtDT(p.createdAt), p.age, p.role, p.freq];
-    if (!p.rests.length) lines.push(base.concat(['', '', '', '', '', '', '', '', '', '', '']).map(csvCell).join(','));
-    p.rests.forEach(r => lines.push(base.concat([r.text, r.when.join('／'), r.dur, r.place, r.who, r.rest == null ? '' : r.rest, r.rec == null ? '' : r.rec, r.fav ? '★' : '', r.memo, inkHasContent(r.ink) ? 'あり' : '', deepText(r.deep)]).map(csvCell).join(',')));
+    if (!p.rests.length) lines.push(base.concat(['', '', '', '', '', '', '', '', '', '', '', '']).map(csvCell).join(','));
+    p.rests.forEach(r => lines.push(base.concat([r.text, r.kind || '', r.when.join('／'), r.dur, r.place, r.who, r.rest == null ? '' : r.rest, r.rec == null ? '' : r.rec, r.fav ? '★' : '', r.memo, inkHasContent(r.ink) ? 'あり' : '', deepText(r.deep)]).map(csvCell).join(',')));
   });
   return '﻿' + lines.join('\r\n') + '\r\n';
 }
@@ -840,7 +906,7 @@ function touchSession() { if (location.hash.startsWith('#/new')) saveDraft(); }
 function refreshStatus() {
   const h = location.hash.split('/'), sess = curSession(), f = sess && sess.form, p = scopeObj('person');
   const done = {
-    text: f && hasText(f.text), when: f && f.when.length > 0, dur: f && !!f.dur, place: f && !!f.place, who: f && !!f.who,
+    text: f && hasText(f.text), kind: f && !!f.kind, when: f && f.when.length > 0, dur: f && !!f.dur, place: f && !!f.place, who: f && !!f.who,
     rest: f && f.rest != null, rec: f && f.rec != null, memo: f && (hasText(f.memo) || inkHasContent(f.ink)),
     nick: p && hasText(p.nick), age: p && !!p.age, role: p && !!p.role, freq: p && !!p.freq
   };
@@ -875,6 +941,22 @@ let personSaveTimer = 0;                                  // typing in a saved r
 const savePersonSoon = () => { clearTimeout(personSaveTimer); personSaveTimer = setTimeout(flushPersonSave, 300); };
 function flushPersonSave() { if (personSaveTimer) { clearTimeout(personSaveTimer); personSaveTimer = 0; saveDB(); } }
 window.addEventListener('pagehide', flushPersonSave);
+const rowsState = () => location.hash.startsWith('#/addrows') ? addRows : (location.hash.startsWith('#/new') && draft && draft.step === 'rows' ? draft : null);
+function onRowEdit(e) {
+  const el = e.target.closest('[data-rowbind]'); if (!el) return;
+  const s = rowsState(), r = s && s.rows[Number(el.closest('[data-row]').dataset.row)]; if (!r) return;
+  const key = el.dataset.rowbind;
+  r[key] = key === 'rec' ? (el.value === '' ? null : Number(el.value)) : el.value;
+  if (s === draft) saveDraft();
+}
+document.addEventListener('input', onRowEdit);
+document.addEventListener('change', onRowEdit);
+document.addEventListener('keydown', e => {      // Enter in a text cell jumps to the next row (a new row after the last one); ignored while converting Japanese
+  if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229 || !e.target.matches || !e.target.matches('.r-text')) return;
+  e.preventDefault();
+  const cells = $$('.r-text'), i = cells.indexOf(e.target);
+  if (i < cells.length - 1) cells[i + 1].focus(); else { const b = $('[data-act=rows-add]'); if (b) b.click(); }
+});
 
 /* ================================================================ actions */
 function nav(hash) { if (location.hash === hash) route(); else location.hash = hash; }
@@ -901,9 +983,9 @@ async function onAct(act, el) {
     case 'new': startNew(false); break;
     case 'discard-draft': if (await confirmDialog('入力途中の記録を破棄しますか？', '破棄する')) { draft = null; lsDel(DRAFT_KEY); viewHome(); } break;
     case 'basic-next':
-      draft.step = draft.rests.length ? 'summary' : 'rest'; saveDraft(); viewNew(); window.scrollTo(0, 0); break;
+      draft.step = draft.rests.length ? 'summary' : 'rows'; saveDraft(); viewNew(); window.scrollTo(0, 0); break;
     case 'draft-basic': draft.step = 'basic'; saveDraft(); viewNew(); break;
-    case 'draft-add': draft.step = 'rest'; if (!draft.form || draft.idx >= 0) { draft.form = newRest(); draft.idx = -1; } draft.page = 0; saveDraft(); viewNew(); window.scrollTo(0, 0); break;
+    case 'draft-add': draft.step = 'rows'; if (!draft.rows || !draft.rows.some(rowFilled)) draft.rows = blankRows(); saveDraft(); viewNew(); window.scrollTo(0, 0); break;
     case 'draft-edit': draft.idx = Number(d.i); draft.form = clone(draft.rests[draft.idx]); draft.step = 'rest'; draft.page = 0; saveDraft(); viewNew(); window.scrollTo(0, 0); break;
     case 'draft-del': if (await confirmDialog('この休み方を削除しますか？')) { draft.rests.splice(Number(d.i), 1); saveDraft(); viewNew(); } break;
     case 'save-person': savePerson(); break;
@@ -944,7 +1026,22 @@ async function onAct(act, el) {
     case 'edit-rest': { const hit = findRest(d.id); if (!hit) break; editSession = { mode: 'edit', restId: d.id, personId: hit.p.id, form: clone(hit.r), page: 0, deepOpen: false }; nav('#/edit/' + d.id); break; }
     case 'delete-rest': if (await confirmDialog('この休み方を削除しますか？\nこの操作は元に戻せません。')) { const hit = findRest(d.id); hit.p.rests = hit.p.rests.filter(x => x.id !== d.id); saveDB(); toast('削除しました'); nav('#/list'); } break;
     case 'open-person': nav('#/person/' + d.id); break;
-    case 'add-to-person': editSession = { mode: 'add', personId: d.id, form: newRest(), page: 0, deepOpen: false }; nav('#/add/' + d.id); break;
+    case 'add-to-person': addRows = { personId: d.id, rows: blankRows() }; nav('#/addrows/' + d.id); break;
+    case 'rows-add': {
+      const s = rowsState(); if (!s) break;
+      s.rows.push(blankRow()); if (s === draft) saveDraft();
+      const y = window.scrollY; if (s === draft) viewNew(); else viewRows('add');
+      window.scrollTo(0, y); const t = $$('.r-text').pop(); if (t) t.focus();
+      break;
+    }
+    case 'rows-back': draft.step = draft.rests.length ? 'summary' : 'basic'; saveDraft(); viewNew(); window.scrollTo(0, 0); break;
+    case 'rows-next': draft.rests.push(...restsFromRows(draft.rows)); draft.rows = blankRows(); draft.form = null; draft.idx = -1; draft.page = 0; draft.step = 'summary'; saveDraft(); viewNew(); window.scrollTo(0, 0); break;
+    case 'rows-cancel': nav('#/person/' + addRows.personId); break;
+    case 'rows-save': {
+      const id = addRows.personId, p = findPerson(id), add = restsFromRows(addRows.rows);
+      if (p && add.length) { const n = p.rests.length; p.rests.push(...add); p.updatedAt = now(); if (!saveDB()) { p.rests.length = n; break; } toast('保存しました'); }
+      addRows = null; nav('#/person/' + id); break;
+    }
     case 'delete-person': { const p = findPerson(d.id); if (p && await confirmDialog(`回答者 ${p.id} と、その休み方${p.rests.length}件を削除しますか？\nこの操作は元に戻せません。`)) { db.people = db.people.filter(x => x.id !== d.id); saveDB(); toast('削除しました'); nav('#/list'); } break; }
     case 'export-csv': if (!db.people.length) { toast('書き出すデータがありません'); break; } download(`yasumo-survey_${stamp()}.csv`, buildCSV(), 'text/csv'); toast('CSVを書き出しました'); break;
     case 'export-json': if (!db.people.length) { toast('書き出すデータがありません'); break; } download(`yasumo-survey_${stamp()}.json`, buildJSON(), 'application/json'); toast('JSONを書き出しました'); break;
@@ -979,6 +1076,9 @@ function route(keepFilterSheet) {
       if (!editSession || editSession.mode !== 'add' || editSession.personId !== parts[1]) editSession = { mode: 'add', personId: parts[1], form: newRest(), page: 0, deepOpen: false };
       viewRestForm(editSession, 'add'); break;
     }
+    case 'addrows':
+      if (!addRows || addRows.personId !== parts[1]) addRows = { personId: parts[1], rows: blankRows() };
+      viewRows('add'); break;
     case 'export': viewExport(); break;
     default: viewHome();
   }
